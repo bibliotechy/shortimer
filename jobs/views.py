@@ -396,3 +396,8 @@ def _can_edit_description(user, job):
         return True
     else:
         return False
+
+
+def map_jobs(request):
+    jobs = models.Job.objects.exclude(location=None)[:25]
+    return render(request, 'map_jobs.html', {'jobs' : jobs})

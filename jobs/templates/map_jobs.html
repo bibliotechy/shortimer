@@ -1,0 +1,59 @@
+{% extends "site.html" %}
+
+{% block title %}Map of 25 most recent jobs with location data{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
+    <!--[if lte IE 8]>
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.ie.css" />
+    <![endif]-->
+    <style>
+    #map {height:500px; width: 100%;}
+    </style>
+{% endblock extra_head %}
+
+{% block content %}
+
+    <div id="map-wrapper" class="span10 offset1">
+        <div id="map" class="map"></div>
+    </div>
+
+
+{% endblock content %}
+
+{% block extra_javascript %}
+    <script src="http://cdn.leafletjs.com/leaflet-0.5/leaflet.js"></script>
+    <script>
+        _.sum = function (obj) {
+            if (!$.isArray(obj) || obj.length == 0) return 0;
+            return _.reduce(obj, function(sum, n) {
+                return sum += n;
+            }); }
+
+        var map = L.map('map');
+        L.tileLayer('http://{s}.tile.cloudmade.com/6b142f3144774208a33fff14cdc125e3/997/256/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
+            maxZoom: 18
+        }).addTo(map);
+        var bounds = new L.LatLngBounds();
+
+        //add a marker for each job, with a popup on click with Title and Employer
+        {% for job in jobs %}
+            var marker{{ forloop.counter }} = L.marker(
+                    [{{ job.location.latitude }},
+                     {{ job.location.longitude }}
+                    ]).addTo(map);
+            marker{{ forloop.counter }}
+                    .bindPopup("<b><a href='/job/{{ job.pk }}/'>{{ job.title }}</a></b>"+
+                               "<br />{{ job.employer.name }}")
+                    .openPopup();
+
+            //Add this point to the bounds, so the map knows its own extent with this new marker
+            bounds.extend(new L.LatLng({{ job.location.latitude }},{{ job.location.longitude }}));
+
+        {% endfor %}
+
+        //Set the zoom and center point to fit the bounds
+        map.fitBounds(bounds);
+    </script>
+{% endblock extra_javascript %}
