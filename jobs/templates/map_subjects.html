@@ -1,6 +1,6 @@
 {% extends "site.html" %}
 
-{% block title %}Map of 25 most recent jobs with location data{% endblock %}
+{% block title %}See jobs for the 15 most popular subjects{% endblock %}
 
 {% block extra_head %}
     <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.ie.css" />
     <![endif]-->
     <style>
-    #map {height:500px; width: 100%;}
+        #map {height:500px; width: 100%;}
     </style>
 {% endblock extra_head %}
 
@@ -31,36 +31,43 @@
             }); }
 
         var map = L.map('map');
-        L.tileLayer('http://{s}.tile.cloudmade.com/6b142f3144774208a33fff14cdc125e3/997/256/{z}/{x}/{y}.png', {
+        var base = L.tileLayer('http://{s}.tile.cloudmade.com/6b142f3144774208a33fff14cdc125e3/997/256/{z}/{x}/{y}.png', {
             attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
             maxZoom: 18
         }).addTo(map);
         var bounds = new L.LatLngBounds();
-
+        var layergroups = {};
         //add a marker for each job, with a popup on click with Title and Employer
-        {% for job in jobs %}
-            var marker{{ forloop.counter }} = L.marker(
-                    [{{ job.location.latitude }},
-                     {{ job.location.longitude }}
-                    ]).addTo(map);
-            marker{{ forloop.counter }}
-                    .bindPopup("<b><a href='/job/{{ job.pk }}/'>{{ job.title }}</a></b>"+
-                               "<br />{{ job.employer.name }}")
-                    .openPopup();
+        {% for subject in subjects %}
+            var markers_{{ subject.pk }} = []
+            {% for job in subject.jobs.all %}
+                {% if job.location %}
+                var marker_{{ job.pk }} = L.marker(
+                        [{{ job.location.latitude }},
+                         {{ job.location.longitude }}]);
+                marker_{{ job.pk }}.bindPopup("<b><a href='/job/{{ job.pk }}/'>{{ job.title }}</a></b>"+
+                    "<br />{{ job.employer.name }} - Published {{ job.post_date }}");
+                markers_{{ subject.pk }}.push(marker_{{ job.pk }});
+                //Add this point to the bounds, so the map knows its own extent with this new marker
+                bounds.extend(new L.LatLng({{ job.location.latitude }},{{ job.location.longitude }}));
+                {% endif %}
 
-            //Add this point to the bounds, so the map knows its own extent with this new marker
-            bounds.extend(new L.LatLng({{ job.location.latitude }},{{ job.location.longitude }}));
-
+            {% endfor %}
+            var layer_{{ subject.pk }} = new L.layerGroup(markers_{{ subject.pk }});
+            layergroups["{{ subject.name }}"]= layer_{{ subject.pk }};
         {% endfor %}
+
+
+        var basemaps = { 'Base' : base };
+
+        L.control.layers(basemaps, layergroups).addTo(map);
 
         //Set the zoom and center point to fit the bounds
 
-        map.locate({'setView' : true, 'timeout' : 10000, maxZoom: 8});
+        map.locate({'setView' : true, 'timeout' : 10000, maxZoom: 6});
 
         //if wedon't get a location from the browser, set the
         map.on('locationerror', function () {map.fitBounds(bounds);});
-
-
 
     </script>
 {% endblock extra_javascript %}

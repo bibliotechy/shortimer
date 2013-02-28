@@ -401,3 +401,8 @@ def _can_edit_description(user, job):
 def map_jobs(request):
     jobs = models.Job.objects.exclude(location=None)[:25]
     return render(request, 'map_jobs.html', {'jobs' : jobs})
+
+def map_subjects(request):
+    #This query set is enormous and slow. Need sane limits. 
+    top_subjects = models.Subject.objects.annotate(number_jobs=Count('jobs')).order_by('-number_jobs')[:10]
+    return render(request, 'map_subjects.html', {'subjects' : top_subjects})
