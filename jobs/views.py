@@ -402,7 +402,17 @@ def map_jobs(request):
     jobs = models.Job.objects.exclude(location=None)[:25]
     return render(request, 'map_jobs.html', {'jobs' : jobs})
 
-def map_subjects(request):
-    #This query set is enormous and slow. Need sane limits. 
-    top_subjects = models.Subject.objects.annotate(number_jobs=Count('jobs')).order_by('-number_jobs')[:10]
-    return render(request, 'map_subjects.html', {'subjects' : top_subjects})
+def map_subjects(request, subject_slug=None):
+    if subject_slug == None:
+        subjects = models.Subject.objects.annotate(nj=Count("jobs__location")).filter(nj__gt=5).order_by("-nj")[:20]
+        for subject in subjects:
+            subject.fjobs = []
+            subject.fjobs.extend([job for job in subject.jobs.all() if job.location and job.post_date and job.post_date > datetime.datetime.now() - datetime.timedelta(weeks=12)])
+        subjects = sorted(subjects,key=lambda x: len(x.fjobs), reverse=True)
+        return render(request, 'map_subjects.html', {'subjects' : subjects})
+    else:
+        subject = models.Subject.objects.get(slug=subject_slug)
+        subject.fjobs = []
+        subject.fjobs.extend([job for job in subject.jobs.all() if job.location and job.post_date and job.post_date > datetime.datetime.now() - datetime.timedelta(weeks=12)])
+        return render(request, 'map_subject.html', {'subject' : subject})
+
