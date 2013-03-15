@@ -10,6 +10,8 @@
     <style>
     #map {height:500px; width: 100%;}
     </style>
+
+
 {% endblock extra_head %}
 
 {% block content %}
@@ -23,7 +25,24 @@
 
 {% block extra_javascript %}
     <script src="http://cdn.leafletjs.com/leaflet-0.5/leaflet.js"></script>
+
     <script>
+
+        add_points = function(data) {
+            for (obj in data) {
+                add_point(data[obj])
+
+            }
+        }
+
+        add_point = function(obj) {
+            var marker =  L.marker([obj.location__latitude, obj.location__longitude], {riseOnHover : true}).addTo(map);
+            marker.bindPopup("<b><a href='/job/" +obj.pk + "/'>" +obj.title + "</a></b><br />" + obj.employer__name);
+            marker.on('mouseover', function() {
+                this.openPopup();
+            })
+        }
+
 
         var map = L.map('map');
         L.tileLayer('http://{s}.tile.cloudmade.com/6b142f3144774208a33fff14cdc125e3/997/256/{z}/{x}/{y}.png', {
@@ -31,21 +50,25 @@
             maxZoom: 18
         }).addTo(map);
         var bounds = new L.LatLngBounds();
+        var marker_count = 0;
 
         //add a marker for each job, with a popup on click with Title and Employer
         {% for job in jobs %}
-            var marker{{ forloop.counter }} = L.marker(
-                    [{{ job.location.latitude }},
-                     {{ job.location.longitude }}
-                    ]).addTo(map);
-            marker{{ forloop.counter }}
-                    .bindPopup("<b><a href='/job/{{ job.pk }}/'>{{ job.title }}</a></b>"+
-                               "<br />{{ job.employer.name }}")
-                    .openPopup();
+            add_point(
+                    {
+                        pk : {{job.pk}},
+                        location__latitude : {{ job.location.latitude }},
+                        location__longitude : {{ job.location.longitude }},
+                        title : "{{ job.title }}",
+                        employer__name : "{{ job.employer.name }}"
+            });
+
+
+
 
             //Add this point to the bounds, so the map knows its own extent with this new marker
             bounds.extend(new L.LatLng({{ job.location.latitude }},{{ job.location.longitude }}));
-
+            marker_count++;
         {% endfor %}
 
         //Set the zoom and center point to fit the bounds
@@ -55,6 +78,47 @@
         //if wedon't get a location from the browser, set the
         map.on('locationerror', function () {map.fitBounds(bounds);});
 
+
+        var MyControl = L.Control.extend({
+            options: {
+                position: 'topright'
+            },
+
+            onAdd: function (map) {
+                // create the control container with a particular class name
+                var container = L.DomUtil.create('div', 'more-markers');
+                L.DomUtil.addClass(container, 'btn');
+                L.DomEvent.addListener(container,'click',function() {
+                    $.ajax({
+                        url : "/map/more/" + marker_count + "/"
+                    }).done(
+                            function(data) {
+                                add_points(data);
+                                 marker_count += data.length;
+                                container.innerHTML = "Moar Jobs <br/> Total : " + marker_count;
+                            }
+                    )
+                });
+                // ... initialize other DOM elements, add listeners, etc.
+                // Set CSS for the control border
+
+                container.innerHTML = 'Moar Jobs <br/> Total : ' + marker_count;
+
+                return container;
+            }
+        });
+
+        map.addControl(new MyControl());
+
+        $('#more').on('click', function() {
+            $.ajax({
+                url : "/maps/more/" + marker_count + "/"
+            }).done(
+                    function(data) {
+                        add_points(data);
+                    }
+            )
+        });
 
 
     </script>

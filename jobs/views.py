@@ -14,7 +14,7 @@ from django.core.urlresolvers import reverse
 from django.template.defaultfilters import slugify
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, render_to_response, get_object_or_404, redirect
-
+from django.core import serializers
 from django.core.paginator import EmptyPage
 from django.http import HttpResponse, HttpResponseGone, HttpResponseNotFound
 
@@ -399,7 +399,7 @@ def _can_edit_description(user, job):
 
 
 def map_jobs(request):
-    jobs = models.Job.objects.exclude(location=None)[:25]
+    jobs = models.Job.objects.exclude(location=None)[:15]
     return render(request, 'map_jobs.html', {'jobs' : jobs})
 
 def map_subjects(request, subject_slug=None):
@@ -416,3 +416,6 @@ def map_subjects(request, subject_slug=None):
         subject.fjobs.extend([job for job in subject.jobs.all() if job.location and job.post_date and job.post_date > datetime.datetime.now() - datetime.timedelta(weeks=12)])
         return render(request, 'map_subject.html', {'subject' : subject})
 
+def more_map_data(request,count):
+    jobs = models.Job.objects.exclude(location=None).values("pk","location__latitude", "location__longitude","title","employer__name")[int(count):int(count)+15]
+    return HttpResponse(json.dumps(list(jobs)), mimetype="application/json")
