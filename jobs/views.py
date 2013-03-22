@@ -2,6 +2,7 @@ import re
 import json
 import smtplib
 import datetime
+from urllib import unquote
 
 from django.http import Http404
 from django.contrib import auth
@@ -14,9 +15,10 @@ from django.core.urlresolvers import reverse
 from django.template.defaultfilters import slugify
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, render_to_response, get_object_or_404, redirect
-from django.core import serializers
+from django.core.serializers.json import DjangoJSONEncoder
 from django.core.paginator import EmptyPage
 from django.http import HttpResponse, HttpResponseGone, HttpResponseNotFound
+
 
 from shortimer.jobs import models
 from shortimer.miner import autotag
@@ -402,20 +404,16 @@ def map_jobs(request):
     jobs = models.Job.objects.exclude(location=None)[:15]
     return render(request, 'map_jobs.html', {'jobs' : jobs})
 
-def map_subjects(request, subject_slug=None):
-    if subject_slug == None:
-        subjects = models.Subject.objects.annotate(nj=Count("jobs__location")).filter(nj__gt=5).order_by("-nj")[:20]
-        for subject in subjects:
-            subject.fjobs = []
-            subject.fjobs.extend([job for job in subject.jobs.all() if job.location and job.post_date and job.post_date > datetime.datetime.now() - datetime.timedelta(weeks=12)])
-        subjects = sorted(subjects,key=lambda x: len(x.fjobs), reverse=True)
-        return render(request, 'map_subjects.html', {'subjects' : subjects})
-    else:
-        subject = models.Subject.objects.get(slug=subject_slug)
-        subject.fjobs = []
-        subject.fjobs.extend([job for job in subject.jobs.all() if job.location and job.post_date and job.post_date > datetime.datetime.now() - datetime.timedelta(weeks=12)])
-        return render(request, 'map_subject.html', {'subject' : subject})
 
-def more_map_data(request,count):
-    jobs = models.Job.objects.exclude(location=None).values("pk","location__latitude", "location__longitude","title","employer__name")[int(count):int(count)+15]
-    return HttpResponse(json.dumps(list(jobs)), mimetype="application/json")
+def map_subjects(request):
+    subjects = models.Subject.objects.annotate(jl=Count("jobs__location")).filter(jl__gt=0).order_by("-jl")
+    return render(request, 'map_subject.html', {'subjects': subjects})
+
+def subject_jobs(request, name):
+    clean_name = unquote(name).strip()
+    jobs = models.Subject.objects.get(name=clean_name).jobs.exclude(location=None).values("pk","location__latitude", "location__longitude","title","employer__name","post_date")
+    return HttpResponse(json.dumps(list(jobs), cls=DjangoJSONEncoder), mimetype="application/json")
+
+def more_map_data(request, count):
+    jobs = models.Job.objects.exclude(location=None).values("pk","location__latitude", "location__longitude","title","employer__name","post_date")[int(count):int(count)+15]
+    return HttpResponse(json.dumps(list(jobs), cls=DjangoJSONEncoder), mimetype="application/json")

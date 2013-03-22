@@ -9,6 +9,10 @@
     <![endif]-->
     <style>
         #map {height:500px; width: 100%;}
+    .subjects{
+        background-color: white;
+        list-style: none;
+    }
     </style>
 {% endblock extra_head %}
 
@@ -23,12 +27,9 @@
 
 {% block extra_javascript %}
     <script src="http://cdn.leafletjs.com/leaflet-0.5/leaflet.js"></script>
+    <script src="/static/js/maps.js"></script>
     <script>
-        _.sum = function (obj) {
-            if (!$.isArray(obj) || obj.length == 0) return 0;
-            return _.reduce(obj, function(sum, n) {
-                return sum += n;
-            }); }
+
 
         var map = L.map('map');
         var base = L.tileLayer('http://{s}.tile.cloudmade.com/6b142f3144774208a33fff14cdc125e3/997/256/{z}/{x}/{y}.png', {
@@ -37,30 +38,37 @@
         }).addTo(map);
         var bounds = new L.LatLngBounds();
 
-        //add a marker for each job, with a popup on click with Title and Employer
-            {% for job in subject.fjobs %}
-                {% if job.location %}
-                var marker_{{ job.pk }} = L.marker(
-                        [{{ job.location.latitude }},
-                         {{ job.location.longitude }}]).addTo(map);
-                marker_{{ job.pk }}.bindPopup("<b><a href='/job/{{ job.pk }}/'>{{ job.title }}</a></b>"+
-                    "<br />{{ job.employer.name }} - Published {{ job.post_date }}");
-
-
-                //Add this point to the bounds, so the map knows its own extent with this new marker
-                bounds.extend(new L.LatLng({{ job.location.latitude }},{{ job.location.longitude }}));
-                {% endif %}
-
-            {% endfor %}
-
-        var basemaps = { 'Base' : base };
-
-        //Set the zoom and center point to fit the bounds
 
         map.locate({'setView' : true, 'timeout' : 10000, maxZoom: 6});
 
         //if wedon't get a location from the browser, set the
-        map.on('locationerror', function () {map.fitBounds(bounds);});
+//        map.on('locationerror', function () {map.fitBounds(bounds);});
+        var subjectSource = Array();
+        {% for subject in subjects %}
+            subjectSource.push("{{ subject.name }} : {{ subject.jl }}");
+
+        {% endfor %}
+
+        map.addControl(new subjectJobs() );
+        $("#subject-search").typeahead({source : subjectSource});
+
+        $("#add-subject").on('click',function(){
+            var subject = encodeURIComponent($.trim($('#subject-search').val().split(":")[0]));
+
+            $.ajax({
+                    url : "/map/subject/" +  subject + "/"
+                }).done(
+                function(data) {
+                    add_markers(data);
+                    $(".subjects-control").append("<br /><ul class='subjects'><li>"+ subject +"</li></ul>");
+
+                }
+        )});
+
+        //This here prevents the map from moving when you click on the input
+        $(".leaflet-control-container input").on('mousedown', function(e) {
+            e.stopPropagation();});
+
 
     </script>
 {% endblock extra_javascript %}
