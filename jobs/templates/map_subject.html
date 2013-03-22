@@ -53,10 +53,10 @@
         $("#subject-search").typeahead({source : subjectSource});
 
         $("#add-subject").on('click',function(){
-            var subject = encodeURIComponent($.trim($('#subject-search').val().split(":")[0]));
+            var subject = $.trim($('#subject-search').val().split(":")[0]);
 
             $.ajax({
-                    url : "/map/subject/" +  subject + "/"
+                    url : "/map/subject/" +  encodeURIComponent(subject) + "/"
                 }).done(
                 function(data) {
                     add_markers(data);
